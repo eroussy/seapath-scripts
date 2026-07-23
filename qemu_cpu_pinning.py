@@ -155,6 +155,11 @@ def main():
         action="store_true",
         help="also show QEMU/KVM task groups with no detectable VM name",
     )
+    parser.add_argument(
+        "vm_name",
+        nargs="?",
+        help="show only this VM and its associated kvm-pit task",
+    )
     args = parser.parse_args()
 
     qemu_processes = []
@@ -182,6 +187,8 @@ def main():
     printed = 0
     for pid in sorted(qemu_processes):
         name = qemu_names[pid]
+        if args.vm_name is not None and name != args.vm_name:
+            continue
         if name != "<unnamed>" or args.all:
             print_process(pid, f"VM: {name}")
             printed += 1
@@ -189,21 +196,25 @@ def main():
                 print_process(pit_pid, f"KVM PIT for VM: {name} (QEMU PID {pid})")
                 printed += 1
 
-    for pid in sorted(other_processes):
-        comm = read_text(PROC / str(pid) / "comm") or "?"
-        print_process(pid, f"Other QEMU/KVM task: {comm}")
-        printed += 1
-
-    for qemu_pid in sorted(kvm_pit_processes):
-        for pit_pid in kvm_pit_processes[qemu_pid]:
-            print_process(
-                pit_pid,
-                f"KVM PIT: kvm-pit/{qemu_pid} (QEMU PID {qemu_pid}, VM not found)",
-            )
+    if args.vm_name is None:
+        for pid in sorted(other_processes):
+            comm = read_text(PROC / str(pid) / "comm") or "?"
+            print_process(pid, f"Other QEMU/KVM task: {comm}")
             printed += 1
 
+        for qemu_pid in sorted(kvm_pit_processes):
+            for pit_pid in kvm_pit_processes[qemu_pid]:
+                print_process(
+                    pit_pid,
+                    f"KVM PIT: kvm-pit/{qemu_pid} (QEMU PID {qemu_pid}, VM not found)",
+                )
+                printed += 1
+
     if printed == 0:
-        print("No QEMU VM or KVM task found.", file=sys.stderr)
+        if args.vm_name is None:
+            print("No QEMU VM or KVM task found.", file=sys.stderr)
+        else:
+            print(f"VM not found: {args.vm_name}", file=sys.stderr)
         return 1
     return 0
 

@@ -6,6 +6,11 @@ Ease SEAPATH debug and deployment
 
 Display QEMU process and threads priority and affinity per VMs
 
+```sh
+./qemu_cpu_pinning.py
+./qemu_cpu_pinning.py myvm
+```
+
 ## Isolated CPU task report
 
 Display every process thread last scheduled on selected CPU. Pass `--allowed`
