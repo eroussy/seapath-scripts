@@ -35,7 +35,7 @@ Example:
    1593  kvm-pit/1580             SCHED_RR             1   41        9  9
 ```
 
-## Isolated CPU task report
+## CPU task report
 
 Display every process thread last scheduled on selected CPU. Pass `--allowed`
 to also display threads whose effective affinity allows selected CPU but last
@@ -43,8 +43,8 @@ scheduler snapshot is elsewhere. When multiple CPUs are selected, tasks are
 grouped by last CPU.
 
 ```sh
-./isolated_cpu_tasks.py 4
-./isolated_cpu_tasks.py 4-7,12 --allowed --json
+./cpu_tasks_report.py 4
+./cpu_tasks_report.py 4-12 --json --allowed
 ```
 
 Example:
