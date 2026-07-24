@@ -47,6 +47,21 @@ grouped by last CPU.
 ./isolated_cpu_tasks.py 4-7,12 --allowed --json
 ```
 
+Example:
+
+```text
+Selected CPU(s): 5
+Last CPU is procfs scheduling snapshot, not instantaneous execution.
+
+Last scheduled on selected CPU(s): 13
+    PID     TID  PROCESS                  THREAD                   LAST_CPU  AFFINITY
+     67      67  cpuhp/5                  cpuhp/5                         5  5
+     68      68  irq_work/5               irq_work/5                      5  5
+     69      69  migration/5              migration/5                     5  5
+     70      70  rcuc/5                   rcuc/5                          5  5
+     [...]
+```
+
 Run as root for complete task visibility. `LAST_CPU` is procfs last-scheduled
 CPU snapshot, not proof thread executes on CPU while report prints.
 

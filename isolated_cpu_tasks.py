@@ -5,12 +5,24 @@
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 
 PROC = Path("/proc")
 SYS_CPU = Path("/sys/devices/system/cpu")
+
+COLORS = {
+    "reset": "\033[0m",
+    "bold": "\033[1m",
+    "cyan": "\033[36m",
+    "yellow": "\033[33m",
+}
+
+
+def colorize(value, *colors):
+    return "".join(COLORS[color] for color in colors) + value + COLORS["reset"]
 
 
 def read_text(path):
@@ -127,34 +139,47 @@ def task_rows(selected_cpus):
     return sorted(running, key=key), sorted(allowed, key=key), skipped
 
 
-def print_header():
-    print(f"{'PID':>7} {'TID':>7}  {'PROCESS':<24} {'THREAD':<24} {'LAST_CPU':>8}  AFFINITY")
+def print_header(colored):
+    header = f"{'PID':>7} {'TID':>7}  {'PROCESS':<24} {'THREAD':<24} {'LAST_CPU':>8}  AFFINITY"
+    print(colorize(header, "bold") if colored else header)
 
 
-def print_rows(title, rows, group_by_last_cpu=False):
-    print(f"\n{title}: {len(rows)}")
+def print_row(row, colored):
+    pid = f"{row['pid']:>7}"
+    tid = f"{row['tid']:>7}"
+    last_cpu = f"{row['last_cpu']:>8}"
+    affinity = row["affinity"]
+    if colored:
+        pid = colorize(pid, "yellow")
+        tid = colorize(tid, "yellow")
+        last_cpu = colorize(last_cpu, "yellow")
+        affinity = colorize(affinity, "cyan")
+    print(
+        f"{pid} {tid}  {row['process']:<24.24} {row['thread']:<24.24} "
+        f"{last_cpu}  {affinity}"
+    )
+
+
+def print_rows(title, rows, colored, group_by_last_cpu=False):
+    heading = f"\n{title}: {len(rows)}"
+    print(colorize(heading, "cyan", "bold") if colored else heading)
     if not rows:
         return
     if not group_by_last_cpu:
-        print_header()
+        print_header(colored)
         for row in rows:
-            print(
-                f"{row['pid']:>7} {row['tid']:>7}  {row['process']:<24.24} "
-                f"{row['thread']:<24.24} {row['last_cpu']:>8}  {row['affinity']}"
-            )
+            print_row(row, colored)
         return
 
     groups = {row["last_cpu"]: [] for row in rows}
     for row in rows:
         groups[row["last_cpu"]].append(row)
     for last_cpu in sorted(groups):
-        print(f"\nLast CPU: {last_cpu}")
-        print_header()
+        group_heading = f"\nLast CPU: {last_cpu}"
+        print(colorize(group_heading, "cyan", "bold") if colored else group_heading)
+        print_header(colored)
         for row in groups[last_cpu]:
-            print(
-                f"{row['pid']:>7} {row['tid']:>7}  {row['process']:<24.24} "
-                f"{row['thread']:<24.24} {row['last_cpu']:>8}  {row['affinity']}"
-            )
+            print_row(row, colored)
 
 
 def main():
@@ -168,7 +193,16 @@ def main():
         help="also show threads allowed on selected CPU(s) but last scheduled elsewhere",
     )
     parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    parser.add_argument(
+        "--color",
+        choices=("auto", "always", "never"),
+        default="auto",
+        help="color human output (default: auto)",
+    )
     args = parser.parse_args()
+    colored = args.color == "always" or (
+        args.color == "auto" and sys.stdout.isatty() and "NO_COLOR" not in os.environ
+    )
 
     try:
         selected_cpus = parse_cpu_list(args.cpus)
@@ -197,11 +231,12 @@ def main():
         print(f"Selected CPU(s): {cpu_list}")
         print("Last CPU is procfs scheduling snapshot, not instantaneous execution.")
         group_by_last_cpu = len(selected_cpus) > 1
-        print_rows("Last scheduled on selected CPU(s)", running, group_by_last_cpu)
+        print_rows("Last scheduled on selected CPU(s)", running, colored, group_by_last_cpu)
         if args.allowed:
             print_rows(
                 "Allowed on selected CPU(s), last scheduled elsewhere",
                 allowed,
+                colored,
                 group_by_last_cpu,
             )
         if skipped:
