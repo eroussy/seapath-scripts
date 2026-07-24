@@ -23,6 +23,28 @@ POLICIES = {
     6: "SCHED_DEADLINE",
 }
 
+COLORS = {
+    "reset": "\033[0m",
+    "bold": "\033[1m",
+    "cyan": "\033[36m",
+    "yellow": "\033[33m",
+    "red": "\033[31m",
+}
+
+
+def colorize(value, *colors):
+    if not colors:
+        return value
+    return "".join(COLORS[color] for color in colors) + value + COLORS["reset"]
+
+
+def scheduler_colors(scheduler):
+    if scheduler == "SCHED_FIFO":
+        return "red", "bold"
+    if scheduler == "SCHED_RR":
+        return "yellow", "bold"
+    return ()
+
 
 def read_text(path):
     try:
@@ -269,31 +291,46 @@ def build_report(interface_name=None):
     return {"interfaces": cards}
 
 
-def print_interface(interface):
-    print(f"\n=== {interface['interface']} ({interface['device']}) ===")
-    print(
+def print_interface(interface, colored):
+    heading = f"\n=== {interface['interface']} ({interface['device']}) ==="
+    print(colorize(heading, "cyan", "bold") if colored else heading)
+    header = (
         f"{'IRQ':>6} {'TID':>7}  {'IRQ_NAME':<42} {'SCHEDULER':<15} {'RTPRIO':>6} "
         f"{'PRIO':>4} {'LAST_CPU':>8}  AFFINITY"
     )
+    print(colorize(header, "bold") if colored else header)
     if not interface["irqs"]:
         return
 
     for irq in interface["irqs"]:
+        irq_number = f"{irq['irq']:>6}"
+        tid = f"{irq['tid']:>7}"
+        scheduler = f"{irq['scheduler']:<15.15}"
+        rtprio = f"{irq['rtprio']:>6}"
+        last_cpu = f"{irq['last_cpu']:>8}"
+        affinity = irq["affinity"]
+        if colored:
+            irq_number = colorize(irq_number, "yellow")
+            tid = colorize(tid, "yellow") if irq["tid"] != "?" else tid
+            scheduler = colorize(scheduler, *scheduler_colors(irq["scheduler"]))
+            if irq["scheduler"] in ("SCHED_FIFO", "SCHED_RR"):
+                rtprio = colorize(rtprio, "yellow", "bold")
+            last_cpu = colorize(last_cpu, "yellow") if irq["last_cpu"] != "?" else last_cpu
+            affinity = colorize(affinity, "cyan") if affinity != "?" else affinity
         print(
-            f"{irq['irq']:>6} {irq['tid']:>7}  {irq['irq_name']:<42.42} "
-            f"{irq['scheduler']:<15.15} {irq['rtprio']:>6} {irq['prio']:>4} "
-            f"{irq['last_cpu']:>8}  {irq['affinity']}"
+            f"{irq_number} {tid}  {irq['irq_name']:<42.42} {scheduler} {rtprio} "
+            f"{irq['prio']:>4} {last_cpu}  {affinity}"
         )
 
 
-def print_report(report):
+def print_report(report, colored):
     interfaces = report["interfaces"]
     if not interfaces:
         print("No physical network device found.")
         return
 
     for interface in interfaces:
-        print_interface(interface)
+        print_interface(interface, colored)
 
 
 def main():
@@ -306,7 +343,16 @@ def main():
         help="show only this physical network interface",
     )
     parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    parser.add_argument(
+        "--color",
+        choices=("auto", "always", "never"),
+        default="auto",
+        help="color human output (default: auto)",
+    )
     args = parser.parse_args()
+    colored = args.color == "always" or (
+        args.color == "auto" and sys.stdout.isatty() and "NO_COLOR" not in os.environ
+    )
 
     report = build_report(args.interface)
     if args.interface is not None and not report["interfaces"]:
@@ -315,7 +361,7 @@ def main():
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
-        print_report(report)
+        print_report(report, colored)
     return 0
 
 

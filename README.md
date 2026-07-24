@@ -66,3 +66,16 @@ threads are `?`.
 IRQ discovery uses device `msi_irqs` and legacy `irq` sysfs entries, with
 `/proc/interrupts` name matching as fallback. Run as root for complete IRQ
 thread visibility. Pass an interface name to output only that network card.
+
+Example:
+
+```text
+=== eno1 (pci0000:00/0000:00:01.1/0000:01:00.0) ===
+   IRQ     TID  IRQ_NAME                                   SCHEDULER       RTPRIO PRIO LAST_CPU  AFFINITY
+    53       ?  ?                                          ?                    ?    ?        ?  ?
+    57     879  IR-PCI-MSIX-0000:01:00.0 0-edge eno1-tx-0  SCHED_FIFO          50   90        7  7
+    58     880  IR-PCI-MSIX-0000:01:00.0 1-edge eno1-rx-1  SCHED_FIFO          50   90       14  14
+    59     881  IR-PCI-MSIX-0000:01:00.0 2-edge eno1-rx-2  SCHED_FIFO          50   90        5  5
+    60     882  IR-PCI-MSIX-0000:01:00.0 3-edge eno1-rx-3  SCHED_FIFO          50   90       12  12
+    61     883  IR-PCI-MSIX-0000:01:00.0 4-edge eno1-rx-4  SCHED_FIFO          50   90        3  3
+```
