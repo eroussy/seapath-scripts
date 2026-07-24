@@ -11,11 +11,12 @@ associated `kvm-pit` task.
 ```sh
 ./qemu_cpu_pinning.py
 ./qemu_cpu_pinning.py myvm
+./qemu_cpu_pinning.py --json
 ```
 
 Run as root for complete QEMU command-line and thread visibility. `LAST_CPU` is
 procfs last-scheduled CPU snapshot, not proof thread executes on CPU while
-report prints.
+report prints. JSON output uses same thread columns as table output.
 
 ## Isolated CPU task report
 

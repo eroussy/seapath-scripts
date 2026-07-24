@@ -4,6 +4,7 @@
 """Report QEMU/KVM thread affinity and scheduler state from procfs."""
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -107,12 +108,12 @@ def print_header():
     )
 
 
-def print_process(pid, title):
+def process_rows(pid):
     task_dir = PROC / str(pid) / "task"
     try:
         tids = sorted(int(entry.name) for entry in task_dir.iterdir() if entry.name.isdecimal())
     except (FileNotFoundError, PermissionError, ProcessLookupError):
-        return
+        return []
 
     rows = []
     for tid in tids:
@@ -123,26 +124,29 @@ def print_process(pid, title):
         policy, rt_priority = scheduler(pid, tid)
         priority = ps_priority(policy, rt_priority, stat["nice"])
         rows.append(
-            (
-                tid,
-                status.get("Name", "?"),
-                policy,
-                rt_priority,
-                priority,
-                stat["cpu"],
-                status.get("Cpus_allowed_list", "?"),
-            )
+            {
+                "tid": tid,
+                "thread": status.get("Name", "?"),
+                "scheduler": policy,
+                "rtprio": rt_priority,
+                "prio": priority,
+                "last_cpu": int(stat["cpu"]),
+                "affinity": status.get("Cpus_allowed_list", "?"),
+            }
         )
+    return rows
 
+
+def print_process(title, rows):
     if not rows:
         return
 
-    print(f"\n=== {title} (PID {pid}) ===")
+    print(f"\n=== {title} ===")
     print_header()
     for row in rows:
         print(
-            f"{row[0]:>7}  {row[1]:<24.24} {row[2]:<15.15} {row[3]:>6} "
-            f"{row[4]:>4} {row[5]:>8}  {row[6]}"
+            f"{row['tid']:>7}  {row['thread']:<24.24} {row['scheduler']:<15.15} "
+            f"{row['rtprio']:>6} {row['prio']:>4} {row['last_cpu']:>8}  {row['affinity']}"
         )
 
 
@@ -160,6 +164,7 @@ def main():
         nargs="?",
         help="show only this VM and its associated kvm-pit task",
     )
+    parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     args = parser.parse_args()
 
     qemu_processes = []
@@ -184,38 +189,45 @@ def main():
             else:
                 other_processes.append(pid)
 
-    printed = 0
+    groups = []
+
+    def add_group(pid, title):
+        rows = process_rows(pid)
+        groups.append({"pid": pid, "name": title, "threads": rows})
+
     for pid in sorted(qemu_processes):
         name = qemu_names[pid]
         if args.vm_name is not None and name != args.vm_name:
             continue
         if name != "<unnamed>" or args.all:
-            print_process(pid, f"VM: {name}")
-            printed += 1
+            add_group(pid, f"VM: {name}")
             for pit_pid in kvm_pit_processes.pop(pid, []):
-                print_process(pit_pid, f"KVM PIT for VM: {name} (QEMU PID {pid})")
-                printed += 1
+                add_group(pit_pid, f"KVM PIT for VM: {name} (QEMU PID {pid})")
 
     if args.vm_name is None:
         for pid in sorted(other_processes):
             comm = read_text(PROC / str(pid) / "comm") or "?"
-            print_process(pid, f"Other QEMU/KVM task: {comm}")
-            printed += 1
+            add_group(pid, f"Other QEMU/KVM task: {comm}")
 
         for qemu_pid in sorted(kvm_pit_processes):
             for pit_pid in kvm_pit_processes[qemu_pid]:
-                print_process(
+                add_group(
                     pit_pid,
                     f"KVM PIT: kvm-pit/{qemu_pid} (QEMU PID {qemu_pid}, VM not found)",
                 )
-                printed += 1
 
-    if printed == 0:
+    if not groups:
         if args.vm_name is None:
             print("No QEMU VM or KVM task found.", file=sys.stderr)
         else:
             print(f"VM not found: {args.vm_name}", file=sys.stderr)
         return 1
+
+    if args.json:
+        print(json.dumps({"groups": groups}, indent=2, sort_keys=True))
+    else:
+        for group in groups:
+            print_process(f"{group['name']} (PID {group['pid']})", group["threads"])
     return 0
 
 
