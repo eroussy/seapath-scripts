@@ -2,14 +2,20 @@
 
 Ease SEAPATH debug and deployment
 
-## QEMU CPU pinning script
+## QEMU CPU pinning report
 
-Display QEMU process and threads priority and affinity per VMs
+Display QEMU/KVM thread ID, name, scheduler, RT priority, priority, last CPU,
+and effective affinity per VM. Pass a VM name to output only that VM and its
+associated `kvm-pit` task.
 
 ```sh
 ./qemu_cpu_pinning.py
 ./qemu_cpu_pinning.py myvm
 ```
+
+Run as root for complete QEMU command-line and thread visibility. `LAST_CPU` is
+procfs last-scheduled CPU snapshot, not proof thread executes on CPU while
+report prints.
 
 ## Isolated CPU task report
 

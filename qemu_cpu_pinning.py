@@ -102,8 +102,8 @@ def process_ids():
 
 def print_header():
     print(
-        f"{'TID':>7}  {'THREAD':<24} {'POLICY':<15} {'RT_PRIO':>7} "
-        f"{'PRIO':>5} {'CPU':>4}  EFFECTIVE_AFFINITY"
+        f"{'TID':>7}  {'THREAD':<24} {'SCHEDULER':<15} {'RTPRIO':>6} "
+        f"{'PRIO':>4} {'LAST_CPU':>8}  AFFINITY"
     )
 
 
@@ -141,8 +141,8 @@ def print_process(pid, title):
     print_header()
     for row in rows:
         print(
-            f"{row[0]:>7}  {row[1]:<24.24} {row[2]:<15.15} {row[3]:>7} "
-            f"{row[4]:>5} {row[5]:>4}  {row[6]}"
+            f"{row[0]:>7}  {row[1]:<24.24} {row[2]:<15.15} {row[3]:>6} "
+            f"{row[4]:>4} {row[5]:>8}  {row[6]}"
         )
 
 
