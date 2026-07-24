@@ -116,7 +116,7 @@ def task_rows(selected_cpus):
                 "process": process_name or "?",
                 "thread": status.get("Name", "?"),
                 "last_cpu": last_cpu,
-                "effective_affinity": affinity_text,
+                "affinity": affinity_text,
             }
             if last_cpu in selected_cpus:
                 running.append(row)
@@ -127,16 +127,34 @@ def task_rows(selected_cpus):
     return sorted(running, key=key), sorted(allowed, key=key), skipped
 
 
-def print_rows(title, rows):
+def print_header():
+    print(f"{'PID':>7} {'TID':>7}  {'PROCESS':<24} {'THREAD':<24} {'LAST_CPU':>8}  AFFINITY")
+
+
+def print_rows(title, rows, group_by_last_cpu=False):
     print(f"\n{title}: {len(rows)}")
     if not rows:
         return
-    print(f"{'PID':>7} {'TID':>7}  {'PROCESS':<24} {'THREAD':<24} {'LAST_CPU':>8}  EFFECTIVE_AFFINITY")
+    if not group_by_last_cpu:
+        print_header()
+        for row in rows:
+            print(
+                f"{row['pid']:>7} {row['tid']:>7}  {row['process']:<24.24} "
+                f"{row['thread']:<24.24} {row['last_cpu']:>8}  {row['affinity']}"
+            )
+        return
+
+    groups = {row["last_cpu"]: [] for row in rows}
     for row in rows:
-        print(
-            f"{row['pid']:>7} {row['tid']:>7}  {row['process']:<24.24} "
-            f"{row['thread']:<24.24} {row['last_cpu']:>8}  {row['effective_affinity']}"
-        )
+        groups[row["last_cpu"]].append(row)
+    for last_cpu in sorted(groups):
+        print(f"\nLast CPU: {last_cpu}")
+        print_header()
+        for row in groups[last_cpu]:
+            print(
+                f"{row['pid']:>7} {row['tid']:>7}  {row['process']:<24.24} "
+                f"{row['thread']:<24.24} {row['last_cpu']:>8}  {row['affinity']}"
+            )
 
 
 def main():
@@ -178,9 +196,14 @@ def main():
         cpu_list = ",".join(map(str, sorted(selected_cpus)))
         print(f"Selected CPU(s): {cpu_list}")
         print("Last CPU is procfs scheduling snapshot, not instantaneous execution.")
-        print_rows("Last scheduled on selected CPU(s)", running)
+        group_by_last_cpu = len(selected_cpus) > 1
+        print_rows("Last scheduled on selected CPU(s)", running, group_by_last_cpu)
         if args.allowed:
-            print_rows("Allowed on selected CPU(s), last scheduled elsewhere", allowed)
+            print_rows(
+                "Allowed on selected CPU(s), last scheduled elsewhere",
+                allowed,
+                group_by_last_cpu,
+            )
         if skipped:
             print(f"\nSkipped unreadable or exited tasks: {skipped}", file=sys.stderr)
 

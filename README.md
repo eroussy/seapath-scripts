@@ -21,7 +21,8 @@ report prints.
 
 Display every process thread last scheduled on selected CPU. Pass `--allowed`
 to also display threads whose effective affinity allows selected CPU but last
-scheduler snapshot is elsewhere.
+scheduler snapshot is elsewhere. When multiple CPUs are selected, tasks are
+grouped by last CPU.
 
 ```sh
 ./isolated_cpu_tasks.py 4
