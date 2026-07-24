@@ -22,6 +22,28 @@ POLICIES = {
     6: "SCHED_DEADLINE",
 }
 
+COLORS = {
+    "reset": "\033[0m",
+    "bold": "\033[1m",
+    "cyan": "\033[36m",
+    "yellow": "\033[33m",
+    "red": "\033[31m",
+}
+
+
+def colorize(value, *colors):
+    if not colors:
+        return value
+    return "".join(COLORS[color] for color in colors) + value + COLORS["reset"]
+
+
+def scheduler_colors(scheduler):
+    if scheduler == "SCHED_FIFO":
+        return "red", "bold"
+    if scheduler == "SCHED_RR":
+        return "yellow", "bold"
+    return ()
+
 
 def read_text(path):
     try:
@@ -101,11 +123,12 @@ def process_ids():
             yield int(entry.name)
 
 
-def print_header():
-    print(
+def print_header(colored):
+    header = (
         f"{'TID':>7}  {'THREAD':<24} {'SCHEDULER':<15} {'RTPRIO':>6} "
         f"{'PRIO':>4} {'LAST_CPU':>8}  AFFINITY"
     )
+    print(colorize(header, "bold") if colored else header)
 
 
 def process_rows(pid):
@@ -137,16 +160,29 @@ def process_rows(pid):
     return rows
 
 
-def print_process(title, rows):
+def print_process(title, rows, colored):
     if not rows:
         return
 
-    print(f"\n=== {title} ===")
-    print_header()
+    heading = f"\n=== {title} ==="
+    print(colorize(heading, "cyan", "bold") if colored else heading)
+    print_header(colored)
     for row in rows:
+        tid = f"{row['tid']:>7}"
+        scheduler = f"{row['scheduler']:<15.15}"
+        rtprio = f"{row['rtprio']:>6}"
+        last_cpu = f"{row['last_cpu']:>8}"
+        affinity = row["affinity"]
+        if colored:
+            tid = colorize(tid, "yellow")
+            scheduler = colorize(scheduler, *scheduler_colors(row["scheduler"]))
+            if row["scheduler"] in ("SCHED_FIFO", "SCHED_RR"):
+                rtprio = colorize(rtprio, "yellow", "bold")
+            last_cpu = colorize(last_cpu, "yellow")
+            affinity = colorize(affinity, "cyan")
         print(
-            f"{row['tid']:>7}  {row['thread']:<24.24} {row['scheduler']:<15.15} "
-            f"{row['rtprio']:>6} {row['prio']:>4} {row['last_cpu']:>8}  {row['affinity']}"
+            f"{tid}  {row['thread']:<24.24} {scheduler} {rtprio} "
+            f"{row['prio']:>4} {last_cpu}  {affinity}"
         )
 
 
@@ -165,7 +201,16 @@ def main():
         help="show only this VM and its associated kvm-pit task",
     )
     parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    parser.add_argument(
+        "--color",
+        choices=("auto", "always", "never"),
+        default="auto",
+        help="color human output (default: auto)",
+    )
     args = parser.parse_args()
+    colored = args.color == "always" or (
+        args.color == "auto" and sys.stdout.isatty() and "NO_COLOR" not in os.environ
+    )
 
     qemu_processes = []
     other_processes = []
@@ -227,7 +272,7 @@ def main():
         print(json.dumps({"groups": groups}, indent=2, sort_keys=True))
     else:
         for group in groups:
-            print_process(f"{group['name']} (PID {group['pid']})", group["threads"])
+            print_process(f"{group['name']} (PID {group['pid']})", group["threads"], colored)
     return 0
 
 

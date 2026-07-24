@@ -16,7 +16,24 @@ associated `kvm-pit` task.
 
 Run as root for complete QEMU command-line and thread visibility. `LAST_CPU` is
 procfs last-scheduled CPU snapshot, not proof thread executes on CPU while
-report prints. JSON output uses same thread columns as table output.
+report prints.
+
+Example:
+
+```text
+=== VM: rtvm (PID 1580) ===
+    TID  THREAD                   SCHEDULER       RTPRIO PRIO LAST_CPU  AFFINITY
+   1580  qemu-system-x86          SCHED_OTHER          0   19        9  9
+   1583  qemu-system-x86          SCHED_OTHER          0   19        9  9
+   1588  vhost-1580               SCHED_RR             1   41        9  9
+   1589  IO mon_iothread          SCHED_OTHER          0   19        9  9
+   1590  CPU 0/KVM                SCHED_FIFO           1   41        5  5
+   [...]
+
+=== KVM PIT for VM: rtvm (QEMU PID 1580) (PID 1593) ===
+    TID  THREAD                   SCHEDULER       RTPRIO PRIO LAST_CPU  AFFINITY
+   1593  kvm-pit/1580             SCHED_RR             1   41        9  9
+```
 
 ## Isolated CPU task report
 
